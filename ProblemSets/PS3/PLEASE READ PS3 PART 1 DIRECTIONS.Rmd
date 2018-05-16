@@ -1,0 +1,12 @@
+---
+title: "Grading PS3: Please REad"
+author: "Kristopher Nichols"
+date: "May 16, 2018"
+output: md_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Please (use)[http://htmlpreview.github.io/] for grading Part 1 PS3. I had difficulties knitting it any other way due to size issues but was able to knit it as an HTML for some reason. Putting the html link into this site will allow for full readability of code. Thank you.
