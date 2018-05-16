@@ -1,0 +1,293 @@
+---
+title: 'Problemset3: Pt1'
+author: "Kristopher Nichols"
+date: "May 16, 2018"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Part 1: Load MNIST and Prepare Data
+```{r}
+set.seed(1234)
+
+library(knitr)
+library(tidyr)
+library(dplyr)
+library(keras)
+library(modelr)
+library(tidyverse)
+
+
+# Load Data
+mnist <- dataset_mnist()
+
+
+images <- array_reshape(mnist$train$x, c(60000, 28 * 28))
+images <- images / 255
+labels <- to_categorical(mnist$train$y)
+
+test_images <- array_reshape(mnist$test$x, c(10000, 28 * 28))
+test_images <- test_images / 255
+test_labels <- to_categorical(mnist$test$y)
+
+
+index <- resample_partition(data.frame(images), 
+                            c(test = 0.16667, train = 1- 0.16667))
+
+# PArtition data into traning and validation data
+training_images <- images[index$train$idx,]
+images_test_validation <- images[index$test$idx,]
+training_labels <- labels[index$train$idx,]
+images_label_validation <- labels[index$test$idx,]
+
+```
+
+## Establish Initial NN
+```{r}
+initial_nn <- keras_model_sequential() %>%
+  layer_dense(units = 512, activation = "relu", input_shape = c(28*28)) %>%
+  layer_dense(units = 512, activation = "relu") %>%
+  layer_dense(units = 512, activation = "relu") %>%
+  layer_dense(units = 512, activation = "relu") %>%
+  layer_dense(units = 10, activation = "softmax")
+
+initial_nn %>% 
+  compile(
+  optimizer = "rmsprop",
+  loss = "categorical_crossentropy",
+  metrics = c("accuracy")
+  )
+
+history_1 <- initial_nn %>%
+  fit(
+    training_images,
+    training_labels,
+    epochs = 200,
+    batch_size = 512,
+    validation_data = list(images_test_validation, images_label_validation)
+  )
+```
+
+## Graphing Initial NN
+```{r}
+number_ticks <- function(n) {function(limits) pretty(limits, n)}
+
+cbind(history_1$metrics$val_loss, history_1$metrics$val_acc, 1:200) %>%
+  data.frame() %>%
+  rename("Validation Loss" = X1, "Validation Accuracy" = X2) %>%
+  gather(1:2, key = Type, value = value) %>%
+  ggplot(aes(X3, value, color = Type)) +
+  geom_line(show.legend = FALSE) +
+  geom_point(show.legend = FALSE) +
+  geom_point(show.legend = FALSE) +
+  theme_classic() +
+  labs(title = "Validation set accuracy and loss",x = "Epoch", subtitle = "Initial NN: W/O Facet Wrap") +
+  scale_x_continuous(breaks=number_ticks(20))
+
+
+
+cbind(history_1$metrics$val_loss, history_1$metrics$val_acc, 1:200) %>%
+  data.frame() %>%
+  rename("Validation Loss" = X1, "Validation Accuracy" = X2) %>%
+  gather(1:2, key = Type, value = value) %>%
+  ggplot(aes(X3, value, color = Type)) +
+  geom_point(show.legend = FALSE) +
+  geom_point(show.legend = FALSE) +
+  geom_line(show.legend = FALSE) +
+  facet_wrap(~Type, scale = "free_y") +
+  theme_classic() +
+  labs(x = "Epoch", title = "Validation Set: Accuracy and Loss", subtitle = "Initial NN" ) +
+  scale_x_continuous(breaks=number_ticks(10))
+```
+As seen in the VAlidation Accuracy graph the epoch at which the model loses its strong predictive power is around epoch 10~
+
+
+## Implement Dropout of .5
+```{r}
+#Implement layer_dropout of .5 with each layer
+nn_2 <- keras_model_sequential() %>%
+layer_dense(units = 512, activation = "relu", input_shape = c(28*28)) %>%
+  layer_dropout(rate = 0.5) %>%
+  layer_dense(units = 512, activation = "relu") %>%
+  layer_dropout(rate = 0.5) %>%
+  layer_dense(units = 512, activation = "relu") %>%
+  layer_dropout(rate = 0.5) %>%
+  layer_dense(units = 512, activation = "relu") %>%
+  layer_dropout(rate = 0.5) %>%
+  layer_dense(units = 10, activation = "softmax")
+
+nn_2 %>% 
+  compile(
+  optimizer = "rmsprop",
+  loss = "categorical_crossentropy",
+  metrics = c("accuracy")
+  )
+
+history2 <- nn_2 %>%
+  fit(
+    training_images,
+    training_labels,
+    epochs = 200,
+    batch_size = 512,
+    validation_data = list(images_test_validation, images_label_validation)
+  )
+
+```
+
+## Comparison of Dropout NN with Initial NN
+```{r}
+#Graph
+
+## Graph Together
+### Bind history_1 (i.e., first nn with val loss and history 2(i.e., nn2))
+cbind(history_1$metrics$val_loss, history2$metrics$val_loss,1:200) %>%
+  data.frame() %>%
+  rename("Initial" = X1, "Dropout" = X2) %>%
+  gather(1:2, key = model, value = value) %>%
+  ggplot(aes(X3, value, color = model)) +
+  geom_point() +
+  geom_point() +
+  geom_line() + 
+  theme_classic() +
+  facet_wrap(~model, scale = "free_y", ncol = 1)
+  labs(title = "Validation Loss Comparison", subtitle = "Initial Neural Net vs Neural Net with Dropout", x = "Epoch", y = "Validation Loss")
+
+## Graph w/ Facet_Wrap by model
+cbind(history_1$metrics$val_loss, 
+      history2$metrics$val_loss,
+      1:200) %>%
+  data.frame() %>%
+  rename("Initial" = X1, "Dropout" = X2) %>%
+  gather(1:2, key = model, value = value) %>%
+  ggplot(aes(X3, value, color = model)) +
+  geom_line() +
+  geom_point() +
+  geom_point() +
+  theme_classic() +
+  facet_wrap(~model, scale = "free_y", ncol = 1)
+  labs(title = "Validation Loss Comparison",
+       subtitle = "Initial Neural Net vs Neural Net with Dropout",
+       x = "Epoch",
+       y = "Validation Loss")
+  
+# Allow for better Vertical Comparison and add smoothing line
+cbind(history_1$metrics$val_loss, 
+      history2$metrics$val_loss,
+      1:200) %>%
+  data.frame() %>%
+  rename("Initial" = X1, "Dropout" = X2) %>%
+  gather(1:2, key = model, value = value) %>%
+  ggplot(aes(X3, value, color = model)) +
+  geom_line() +
+  geom_point(shape = 19) +
+  geom_point(shape = 1, color = "black") +
+  geom_smooth() +
+  theme_classic() +
+  facet_wrap(~model, scale = "free_y", ncol = 1) +
+  labs(title = "Validation Loss Comparison", subtitle = "Initial Neural Net vs Neural Net with Dropout", x = "Epoch", y = "Validation Loss") +
+  scale_x_continuous(breaks=number_ticks(10))
+```
+Validation Loss values are consistently lower accross epochs than the initial model. The dropout neural net has more predictive power here.
+
+## Weight Regularization: Reestimate Initial Model with .0001 Penalty for Weight Coefficient (L1 & L2)
+```{r}
+# L1
+nn_3 <- keras_model_sequential() %>%
+  layer_dense(units = 512, activation = "relu", kernel_regularizer = regularizer_l1(0.001), # Weight REgulaizer L1 of .001
+              input_shape = c(28*28)) %>%
+  layer_dense(units = 512, activation = "relu", kernel_regularizer = regularizer_l1(0.001)) %>%
+  layer_dense(units = 512, activation = "relu", kernel_regularizer = regularizer_l1(0.001)) %>%
+  layer_dense(units = 512, activation = "relu", kernel_regularizer = regularizer_l1(0.001)) %>%
+  layer_dense(units = 10, activation = "softmax")
+
+nn_3 %>% 
+  compile(
+  optimizer = "rmsprop",
+  loss = "categorical_crossentropy",
+  metrics = c("accuracy")
+  )
+
+history3 <- nn_3 %>%
+  fit(
+    training_images,
+    training_labels,
+    epochs = 200,
+    batch_size = 512,
+    validation_data = list(images_test_validation, images_label_validation)
+  )
+
+network4 <- keras_model_sequential() %>%
+  layer_dense(units = 512, activation = "relu", kernel_regularizer = regularizer_l2(0.001), # Weight REgulaizer L1 of .001
+              input_shape = c(28*28)) %>%
+  layer_dense(units = 512, activation = "relu", kernel_regularizer = regularizer_l2(0.001)) %>%
+  layer_dense(units = 512, activation = "relu", kernel_regularizer = regularizer_l2(0.001)) %>%
+  layer_dense(units = 512, activation = "relu", kernel_regularizer = regularizer_l2(0.001)) %>%
+  layer_dense(units = 10, activation = "softmax")
+
+network4 %>% 
+  compile(
+  optimizer = "rmsprop",
+  loss = "categorical_crossentropy",
+  metrics = c("accuracy")
+  )
+
+history4 <- network4 %>%
+  fit(
+    training_images,
+    training_labels,
+    epochs = 200,
+    batch_size = 512,
+    validation_data = list(images_test_validation, images_label_validation)
+  )
+
+```
+
+## Graphical Comparison of all Models
+```{r}
+comparison <- data.frame(cbind(history_1$metrics$val_loss, # Bind all necessary NNs
+                                history2$metrics$val_loss, 
+                                history3$metrics$val_loss, 
+                                history4$metrics$val_loss, 
+                                1:200)) %>%
+  rename("Initial" = X1, "Dropout" = X2,
+         "L1" = X3, "L2" = X4) %>%
+  gather(1:4, key = model, value = value)
+
+
+comparison %>%
+  filter(model != "l1") %>% # Removed L1 because of outlier values hampering ability to decipher graph
+  ggplot(aes(X5, value, color = model)) +
+  geom_line() +
+  geom_point() +
+  geom_point() +
+  theme_classic() +
+  labs(title = "Validation Loss Comparison", subtitle = "Initial, Dropout, and L2", x = "Epoch", y = "Validation Loss") +
+  ylim(0, 0.5) +
+  scale_x_continuous(breaks=number_ticks(10))
+
+comparison %>% # With Facet Wrap for Comparison # Included L1 back in to see discrepancy
+  ggplot(aes(X5, value, color = model)) +
+  geom_line() +
+  geom_point() +
+  geom_point() +
+  theme_classic() +
+  labs(title = "Validation Loss Comparison", subtitle = "Initial, Dropout, and L2", x = "Epoch", y = "Validation Loss") +
+  facet_wrap(~model, scale = "free_y", ncol=1)+
+  ylim(0, 0.5) +
+  scale_x_continuous(breaks=number_ticks(10))
+
+```
+The dropout model is the most consistent of all of them, although the L2 regulization model has lower validation loss at certain epochs. The problem with the L2 model is its incredibly highly variance, particularly at epochs 0-20, 120, and 200. Because of this variance I will choose the dropout model as the best model.
+
+## Final NN
+```{r}
+nn_2 %>% # Choose Best
+  fit(images, labels, epochs = 27, batch_size = 512)
+results_final <- nn_2 %>% 
+  evaluate(test_images, test_labels)
+
+print(results_final)
+```
