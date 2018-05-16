@@ -9,4 +9,4 @@ output: md_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## Please (use)[http://htmlpreview.github.io/] for grading Part 1 PS3. I had difficulties knitting it any other way due to size issues but was able to knit it as an HTML for some reason. Putting the html link into this site will allow for full readability of code. Thank you.
+## Please (use)[http://htmlpreview.github.io/] for grading Part 1 and 2 of PS3. I had difficulties knitting it any other way due to size issues but was able to knit it as an HTML for some reason. Putting the html link into this site will allow for full readability of code. Thank you.
