@@ -7,4 +7,4 @@ Kris Nichols' MACS 30200 Research Project
 - How have past research methods been insufficient in answering these questions?
 - How can Google Search Data serve as a better proxy for climate change concern?
 
-**The final paper has been uploaded and the code can be found in the same folder.
+**The final paper has been uploaded and the code can be found in the same folder.**
